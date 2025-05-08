@@ -7,7 +7,6 @@
 #include "alpaka/Vec.hpp"
 #include "alpaka/core/common.hpp"
 
-#include <array>
 #include <concepts>
 #include <cstdint>
 #include <functional>
@@ -126,5 +125,66 @@ namespace alpaka
         return integerSequenceToCVec(
             filterValues(std::not_fn(detail::Contains<ALPAKA_TYPEOF(leftSeq)>{}), toIntegerSequence(right)));
     }
+
+    namespace newCVec
+    {
+        template<auto v>
+        struct ct_constant
+        {
+            using value_type = decltype(v);
+            static constexpr value_type value = v;
+            using type = ct_constant;
+
+            constexpr operator value_type() const noexcept
+            {
+                return value;
+            }
+
+            constexpr value_type operator()() const noexcept
+            {
+                return value;
+            }
+        };
+
+        namespace detail_cvec
+        {
+            template<typename T>
+            struct is_alpaka_vec_impl : std::false_type
+            {
+            };
+
+            template<typename T_Elem, uint32_t T_Dim, typename T_Storage>
+            struct is_alpaka_vec_impl<alpaka::Vec<T_Elem, T_Dim, T_Storage>> : std::true_type
+            {
+            };
+
+            template<typename T>
+            concept IsAlpakaVec = is_alpaka_vec_impl<std::remove_cvref_t<T>>::value;
+        } // namespace detail_cvec
+
+        template<detail_cvec::IsAlpakaVec auto v>
+        struct CVec : ct_constant<v>
+        {
+            using VecType = decltype(v);
+            using type = VecType::type;
+            using ParamType = type;
+
+            static consteval uint32_t dim()
+            {
+                return v.dim();
+            }
+
+            consteval ParamType operator[](std::integral auto const idx) const
+            {
+                return v[idx];
+            }
+
+            consteval ParamType at(std::integral auto const idx) const
+            {
+                return v.at(idx);
+            }
+        };
+    } // namespace newCVec
+
 
 } // namespace alpaka

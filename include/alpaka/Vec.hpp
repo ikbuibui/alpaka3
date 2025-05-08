@@ -26,7 +26,7 @@ namespace alpaka
      * array as default storage without this wrapper.
      */
     template<typename T_Type, uint32_t T_dim>
-    struct ArrayStorage : protected std::array<T_Type, T_dim>
+    struct ArrayStorage : public std::array<T_Type, T_dim>
     {
         using type = T_Type;
         using BaseType = std::array<T_Type, T_dim>;
@@ -116,7 +116,7 @@ namespace alpaka
     struct Vec;
 
     template<typename T_Type, uint32_t T_dim, typename T_Storage>
-    struct Vec : private T_Storage
+    struct Vec : public T_Storage
     {
         using Storage = T_Storage;
         using type = T_Type;

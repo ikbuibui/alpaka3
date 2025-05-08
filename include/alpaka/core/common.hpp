@@ -223,4 +223,4 @@
 
 #define ALPAKA_FORWARD(instance) std::forward<decltype(instance)>(instance)
 
-#define ALPAKA_TYPEOF(...) std::decay_t<decltype(__VA_ARGS__)>
+#define ALPAKA_TYPEOF(...) std::remove_cvref_t<decltype(__VA_ARGS__)>
