@@ -6,6 +6,8 @@
 
 #include "alpaka/core/config.hpp"
 
+#include <atomic>
+
 #if ALPAKA_LANG_SYCL
 
 #    include "alpaka/api/syclGeneric/tag.hpp"
@@ -43,13 +45,54 @@ namespace alpaka::detail
         static constexpr auto value = sycl::memory_scope::work_group;
     };
 
-    template<typename T, typename THierarchy>
-    using sycl_atomic_ref = sycl::atomic_ref<T, sycl::memory_order::relaxed, SyclMemoryScope<THierarchy>::value>;
+    template<std::memory_order MemOrder>
+    struct SyclMemoryOrder
+    {
+    };
 
-    template<typename THierarchy, typename T, typename TOp>
+    template<>
+    struct SyclMemoryOrder<std::memory_order_relaxed>
+    {
+        static constexpr auto value = sycl::memory_order::relaxed;
+    };
+
+    template<>
+    struct SyclMemoryOrder<std::memory_order_consume>
+    {
+        static constexpr auto value = sycl::memory_order::consume;
+    };
+
+    template<>
+    struct SyclMemoryOrder<std::memory_order_acquire>
+    {
+        static constexpr auto value = sycl::memory_order::acquire;
+    };
+
+    template<>
+    struct SyclMemoryOrder<std::memory_order_release>
+    {
+        static constexpr auto value = sycl::memory_order::release;
+    };
+
+    template<>
+    struct SyclMemoryOrder<std::memory_order_acq_rel>
+    {
+        static constexpr auto value = sycl::memory_order::acq_rel;
+    };
+
+    template<>
+    struct SyclMemoryOrder<std::memory_order_seq_cst>
+    {
+        static constexpr auto value = sycl::memory_order::seq_cst;
+    };
+
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    using sycl_atomic_ref = sycl::atomic_ref<T, SyclMemoryOrder<MemOrder>::value, SyclMemoryScope<THierarchy>::value>;
+
+    template<std::memory_order MemOrder, typename THierarchy, typename T, typename TOp>
     inline auto callAtomicOp(T* const addr, TOp&& op)
     {
-        auto ref = sycl_atomic_ref<T, THierarchy>{*addr};
+        auto ref = sycl_atomic_ref<T, MemOrder, THierarchy>{*addr};
         return op(ref);
     }
 
@@ -72,14 +115,14 @@ namespace alpaka::onAcc::internalCompute
 {
     // Add.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicAdd, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicAdd, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "SYCL atomics do not support this type");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
                 addr,
                 [&value](auto& ref) { return ref.fetch_add(value); });
         }
@@ -87,14 +130,14 @@ namespace alpaka::onAcc::internalCompute
 
     // Sub.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicSub, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicSub, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "SYCL atomics do not support this type");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
                 addr,
                 [&value](auto& ref) { return ref.fetch_sub(value); });
         }
@@ -102,14 +145,14 @@ namespace alpaka::onAcc::internalCompute
 
     // Min.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicMin, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicMin, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "SYCL atomics do not support this type");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
                 addr,
                 [&value](auto& ref) { return ref.fetch_min(value); });
         }
@@ -117,14 +160,14 @@ namespace alpaka::onAcc::internalCompute
 
     // Max.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicMax, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicMax, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "SYCL atomics do not support this type");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
                 addr,
                 [&value](auto& ref) { return ref.fetch_max(value); });
         }
@@ -132,23 +175,25 @@ namespace alpaka::onAcc::internalCompute
 
     // Exch.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicExch, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicExch, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(
-            (std::is_integral_v<T> || std::is_floating_point_v<T>) and(sizeof(T) == 4 || sizeof(T) == 8),
+            (std::is_integral_v<T> || std::is_floating_point_v<T>) and (sizeof(T) == 4 || sizeof(T) == 8),
             "SYCL atomics do not support this type");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(addr, [&value](auto& ref) { return ref.exchange(value); });
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
+                addr,
+                [&value](auto& ref) { return ref.exchange(value); });
         }
     };
 
     // Inc.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicInc, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicInc, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(
             std::is_unsigned_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
@@ -164,8 +209,8 @@ namespace alpaka::onAcc::internalCompute
 
     // Dec.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicDec, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicDec, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(
             std::is_unsigned_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
@@ -181,14 +226,14 @@ namespace alpaka::onAcc::internalCompute
 
     // And.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicAnd, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicAnd, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T>, "Bitwise operations only supported for integral types.");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
                 addr,
                 [&value](auto& ref) { return ref.fetch_and(value); });
         }
@@ -196,27 +241,29 @@ namespace alpaka::onAcc::internalCompute
 
     // Or.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicOr, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicOr, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T>, "Bitwise operations only supported for integral types.");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(addr, [&value](auto& ref) { return ref.fetch_or(value); });
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
+                addr,
+                [&value](auto& ref) { return ref.fetch_or(value); });
         }
     };
 
     // Xor.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicXor, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicXor, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T>, "Bitwise operations only supported for integral types.");
 
         static auto atomicOp(onAcc::internal::SyclAtomic const&, T* const addr, T const& value) -> T
         {
-            return alpaka::detail::callAtomicOp<THierarchy>(
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(
                 addr,
                 [&value](auto& ref) { return ref.fetch_xor(value); });
         }
@@ -224,8 +271,8 @@ namespace alpaka::onAcc::internalCompute
 
     // Cas.
     //! The SYCL accelerator atomic operation.
-    template<typename T, typename THierarchy>
-    struct Atomic::Op<AtomicCas, onAcc::internal::SyclAtomic, T, THierarchy>
+    template<typename T, std::memory_order MemOrder, typename THierarchy>
+    struct Atomic::Op<AtomicCas, onAcc::internal::SyclAtomic, T, MemOrder, THierarchy>
     {
         static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "SYCL atomics do not support this type");
 
@@ -247,7 +294,7 @@ namespace alpaka::onAcc::internalCompute
                 return expected_;
             };
 
-            return alpaka::detail::callAtomicOp<THierarchy>(addr, cas);
+            return alpaka::detail::callAtomicOp<MemOrder, THierarchy>(addr, cas);
         }
     };
 } // namespace alpaka::onAcc::internalCompute

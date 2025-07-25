@@ -10,6 +10,8 @@
 #include "alpaka/onAcc/tag.hpp"
 #include "alpaka/tag.hpp"
 
+#include <atomic>
+
 namespace alpaka::onAcc
 {
     namespace internalCompute
@@ -69,7 +71,7 @@ namespace alpaka::onAcc
         struct Atomic
         {
             /** Implements a atomic operation */
-            template<typename TOp, typename TAtomicImpl, typename T, typename THierarchy, typename TSfinae = void>
+            template<typename TOp, typename TAtomicImpl, typename T, std::memory_order MemOrder, typename THierarchy>
             struct Op;
         };
 
