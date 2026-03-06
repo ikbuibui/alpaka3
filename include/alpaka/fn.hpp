@@ -10,7 +10,7 @@
 
 #include <type_traits>
 
-/** @brief alpaka'S function interface
+/** @brief alpaka's function interface
  *
  * This file defines the interface for registering, dispatching and calling function overloads specialize for device
  * specifications. A device specification consists of an alpaka API and device kind. These functions can be dispatched
@@ -18,7 +18,7 @@
  * provides a way to work natively with alpaka objects while being able to use third party interfaces for functionality
  * not provided in alpaka or in cases where the vendor implementation provides better performance. For each exposed
  * function you can provide a fallback to an alpaka implementation for a device specification or a device specification
- * independent genric implementation. This keeps your code base portable even if you can not dispatch to a third
+ * independent generic implementation. This keeps your code base portable even if you can not dispatch to a third
  * party/vendor library and avoids preprocessor macros around function calls. The preprocessor macro ALPAKA_FN_SYMBOL()
  * should be used to declare a function symbol.
  * A function symbol follows all requirements to be used as kernel within alpaka.
@@ -38,7 +38,7 @@ namespace alpaka::fn
 {
     namespace api
     {
-        /** @prief Api tag for alpaka.
+        /** @brief Api tag for alpaka.
          *
          * @warning This api should be used together with alpaka's function interface, it is not compatible with other
          * alpaka interfaces where api's are required.
@@ -91,7 +91,7 @@ namespace alpaka::fn
         none = 3
     };
 
-    /** @brief Policy to control if a function symbal must be registered.
+    /** @brief Policy to control if a function symbol must be registered.
      */
     enum class Registration : int
     {
@@ -167,7 +167,7 @@ namespace alpaka::fn
         /** Checks if a function overload is registered for the given device specification.
          *
          * You can use the result to optionally call the function overload and disable at compile time code sections
-         * similar to C** preprocessor guards.
+         * similar to C++ preprocessor guards.
          * @code
          * ALPAKA_FN_SYMBOL(Foo,alpaka::fn::Fallback::none, alpaka::fn::Registration::enforced);
          *
@@ -289,7 +289,7 @@ namespace alpaka::fn
  * function device specification is callable. If set to Fallback::none no fallback is performed and a static assert is
  * triggered if no vendor function overload is defined for the given device specification. Default:
  * Fallback::toGeneric.
- * @param optional_registartion If set to Registration::enforced the isRegistered() can be called, and it is
+ * @param optional_registration If set to Registration::enforced the isRegistered() can be called, and it is
  * required to define fnRegister() for on T_FnClass. If set to Registration::none the isRegistered()
  * function is not available and no registration of the vendor function overloads is required. If set to
  * Registration::alwaysTrue isRegistered() will always return true. This can be used to skip the registration of
